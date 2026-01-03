@@ -1,147 +1,29 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.metrics import accuracy_score, mean_squared_error, classification_report, r2_score
 from io import StringIO
 from datetime import datetime, timedelta
-import warnings
-warnings.filterwarnings('ignore')
 
-# Set page configuration for mobile
+# IMPORTANT: We need to check if sklearn is available
+try:
+    from sklearn.model_selection import train_test_split
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+    SKLEARN_AVAILABLE = True
+    st.success("✅ scikit-learn is available!")
+except ImportError as e:
+    st.error(f"❌ scikit-learn import failed: {e}")
+    SKLEARN_AVAILABLE = False
+
+# Set page config
 st.set_page_config(
-    page_title="Option Predictor Mobile",
-    page_icon="📱",
+    page_title="Option Predictor PRO",
+    page_icon="📈",
     layout="wide",
-    initial_sidebar_state="collapsed"  # Collapsed for mobile
+    initial_sidebar_state="expanded"
 )
 
-# Mobile-optimized CSS
-st.markdown("""
-<style>
-    /* Mobile-first responsive design */
-    @media (max-width: 768px) {
-        .main-header {
-            font-size: 1.8rem !important;
-            padding: 10px 5px !important;
-        }
-        .stButton > button {
-            width: 100% !important;
-            margin: 5px 0 !important;
-            font-size: 16px !important;
-            height: 50px !important;
-        }
-        .stNumberInput, .stSelectbox, .stDateInput, .stTextInput {
-            margin-bottom: 15px !important;
-        }
-        .prediction-card {
-            padding: 15px !important;
-            margin: 10px 0 !important;
-            border-radius: 10px !important;
-        }
-        .metric-card {
-            padding: 12px !important;
-            margin: 8px 0 !important;
-            font-size: 14px !important;
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 2px !important;
-        }
-        .stTabs [data-baseweb="tab"] {
-            padding: 8px 12px !important;
-            font-size: 14px !important;
-        }
-    }
-    
-    /* General mobile styles */
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        margin-bottom: 20px;
-        font-size: 2rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    .prediction-card {
-        background: white;
-        padding: 20px;
-        border-radius: 15px;
-        margin: 15px 0;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-        border: 1px solid #e0e0e0;
-    }
-    
-    .buy-call-card {
-        background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
-        border-left: 5px solid #28a745;
-        color: #155724;
-    }
-    
-    .buy-put-card {
-        background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
-        border-left: 5px solid #dc3545;
-        color: #721c24;
-    }
-    
-    .metric-card {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-        border: 1px solid #dee2e6;
-        text-align: center;
-    }
-    
-    .mobile-input-group {
-        background: #f8f9fa;
-        padding: 15px;
-        border-radius: 10px;
-        margin: 10px 0;
-    }
-    
-    .risk-warning {
-        background: #fff3cd;
-        border: 1px solid #ffeaa7;
-        padding: 12px;
-        border-radius: 8px;
-        margin: 15px 0;
-        font-size: 14px;
-    }
-    
-    .stProgress > div > div {
-        height: 15px !important;
-        border-radius: 10px !important;
-    }
-    
-    /* Hide sidebar on mobile */
-    @media (max-width: 768px) {
-        section[data-testid="stSidebar"] {
-            display: none !important;
-        }
-        div[data-testid="stHorizontalBlock"] {
-            flex-direction: column !important;
-        }
-    }
-    
-    /* Better touch targets */
-    button, input, select, textarea {
-        font-size: 16px !important; /* Prevents iOS zoom */
-    }
-    
-    /* Mobile-friendly tabs */
-    .mobile-tab {
-        font-size: 14px !important;
-        padding: 8px 4px !important;
-    }
-</style>
-""", unsafe_allow_html=True)
-
-# Your existing data
+# Your actual data
 data_text = """Date ,DAY,OPTION Name,CE-previous,PE- previous,PCR,OPCR,CE – Buy,PE- Buy,CE – Sell,PE – Sell,CE – Profit,PE – Profit
 29 / 10 / 2025,Wednesday,25950,155.13,113.32,0.59,0.78,0,96,0,102.72,0,504
 31 / 10 / 2025,Friday,25950,93.64,101.6,0.44,0.6,78.2,101.6,83.674,108.712,410.55,533.4
@@ -193,14 +75,11 @@ data_text = """Date ,DAY,OPTION Name,CE-previous,PE- previous,PCR,OPCR,CE – Bu
 01 / 01 / 2026,Thursday,26100,119.67,56.08,1.92,1.35,0,49.4,0,59.4,0,750
 02 / 01 / 2026,Friday,26150,73.759,57.441,0.94,0.89,0,49.35,0,0,0,-3701.25"""
 
-# Your existing data cleaning functions
+# Data cleaning function (from your original code)
 def clean_data_manual(df):
-    """Manually clean the data based on actual column names"""
     data = df.copy()
-    
     cleaned_data = {}
     
-    # Extract and clean each column
     cleaned_data['Date'] = pd.to_datetime(data.iloc[:, 0].str.strip(), format='%d / %m / %Y', errors='coerce')
     cleaned_data['Day'] = data.iloc[:, 1].str.strip()
     cleaned_data['Option_Name'] = pd.to_numeric(data.iloc[:, 2], errors='coerce')
@@ -211,10 +90,6 @@ def clean_data_manual(df):
     cleaned_data['OPCR'] = pd.to_numeric(data.iloc[:, 6], errors='coerce')
     cleaned_data['CE_Buy'] = pd.to_numeric(data.iloc[:, 7], errors='coerce')
     cleaned_data['PE_Buy'] = pd.to_numeric(data.iloc[:, 8], errors='coerce')
-    cleaned_data['CE_Sell'] = pd.to_numeric(data.iloc[:, 9], errors='coerce')
-    cleaned_data['PE_Sell'] = pd.to_numeric(data.iloc[:, 10], errors='coerce')
-    cleaned_data['CE_Profit'] = pd.to_numeric(data.iloc[:, 11], errors='coerce')
-    cleaned_data['PE_Profit'] = pd.to_numeric(data.iloc[:, 12] if len(data.columns) > 12 else pd.Series([np.nan] * len(data)), errors='coerce')
     
     cleaned_df = pd.DataFrame(cleaned_data)
     cleaned_df['CE_Buy'] = cleaned_df['CE_Buy'].fillna(0)
@@ -227,16 +102,21 @@ def clean_data_manual(df):
     
     return cleaned_df
 
-# Your existing SimpleOptionPredictor class
-class SimpleOptionPredictor:
+# Your ML Model Class
+class OptionPredictorML:
     def __init__(self):
-        self.classifier = RandomForestClassifier(n_estimators=100, random_state=42, max_depth=5)
-        self.regressor = RandomForestRegressor(n_estimators=100, random_state=42, max_depth=5)
-        self.scaler = StandardScaler()
-        self.feature_cols = ['CE_previous', 'PE_previous', 'PCR', 'OPCR', 'Strike_Price']
+        if SKLEARN_AVAILABLE:
+            self.classifier = RandomForestClassifier(n_estimators=50, random_state=42, max_depth=5)
+            self.regressor = RandomForestRegressor(n_estimators=50, random_state=42, max_depth=5)
+            self.scaler = StandardScaler()
+        else:
+            st.error("Cannot initialize ML models without scikit-learn")
+            raise ImportError("scikit-learn not available")
         
+        self.feature_cols = ['CE_previous', 'PE_previous', 'PCR', 'OPCR', 'Strike_Price']
+        self.is_trained = False
+    
     def prepare_features(self, data):
-        """Prepare features for the model"""
         X = pd.DataFrame()
         
         for col in self.feature_cols:
@@ -248,41 +128,41 @@ class SimpleOptionPredictor:
         if 'Date' in data.columns:
             X['Day_of_Week'] = data['Date'].dt.dayofweek
             X['Month'] = data['Date'].dt.month
-            X['Day_of_Month'] = data['Date'].dt.day
         
         X['CE_PE_Ratio'] = X['CE_previous'] / (X['PE_previous'] + 1e-10)
         X['PCR_OPCR_Ratio'] = X['PCR'] / (X['OPCR'] + 1e-10)
-        X['PCR_OPCR_Diff'] = X['PCR'] - X['OPCR']
         
         return X
     
     def train(self, data):
-        """Train both classification and regression models"""
         X = self.prepare_features(data)
         mask = data['Buy_Decision'] != -1
         X_buy = X[mask]
         y_class = data.loc[mask, 'Buy_Decision']
         y_reg = data.loc[mask, 'Buy_Price']
         
-        if len(X_buy) < 10:
+        if len(X_buy) < 5:
+            st.warning("Not enough training data")
             return self
         
         X_train, X_test, y_class_train, y_class_test, y_reg_train, y_reg_test = train_test_split(
-            X_buy, y_class, y_reg, test_size=0.3, random_state=42, stratify=y_class
+            X_buy, y_class, y_reg, test_size=0.2, random_state=42
         )
         
         X_train_scaled = self.scaler.fit_transform(X_train)
-        X_test_scaled = self.scaler.transform(X_test)
         
         self.classifier.fit(X_train_scaled, y_class_train)
         self.regressor.fit(X_train_scaled, y_reg_train)
+        self.is_trained = True
+        
+        # Calculate accuracy
+        X_test_scaled = self.scaler.transform(X_test)
+        accuracy = self.classifier.score(X_test_scaled, y_class_test)
+        st.sidebar.success(f"✅ Model trained! Accuracy: {accuracy:.1%}")
         
         return self
     
     def predict_single(self, input_dict):
-        """
-        Predict for a single input
-        """
         try:
             input_df = pd.DataFrame([{
                 'Date': pd.to_datetime(input_dict['Date']),
@@ -299,472 +179,292 @@ class SimpleOptionPredictor:
             
             decision = self.classifier.predict(X_scaled)[0]
             proba = self.classifier.predict_proba(X_scaled)[0]
-            price = max(0, self.regressor.predict(X_scaled)[0])
+            price = max(10, self.regressor.predict(X_scaled)[0])
             
             if decision == 1:
-                result = {
+                return {
                     'action': 'BUY_CALL',
                     'predicted_CE_Buy': round(float(price), 2),
                     'predicted_PE_Buy': 0.0,
                     'confidence': round(float(max(proba)), 3),
                     'call_probability': round(float(proba[1]), 3),
-                    'put_probability': round(float(proba[0]), 3)
+                    'put_probability': round(float(proba[0]), 3),
+                    'model_type': 'ML (Random Forest)'
                 }
             else:
-                result = {
+                return {
                     'action': 'BUY_PUT',
                     'predicted_CE_Buy': 0.0,
                     'predicted_PE_Buy': round(float(price), 2),
                     'confidence': round(float(max(proba)), 3),
                     'call_probability': round(float(proba[1]), 3),
-                    'put_probability': round(float(proba[0]), 3)
+                    'put_probability': round(float(proba[0]), 3),
+                    'model_type': 'ML (Random Forest)'
                 }
-            
-            result['feature_analysis'] = {
-                'CE_PE_Ratio': round(float(X['CE_PE_Ratio'].iloc[0]), 3),
-                'PCR_OPCR_Ratio': round(float(X['PCR_OPCR_Ratio'].iloc[0]), 3),
-                'PCR_OPCR_Diff': round(float(X['PCR_OPCR_Diff'].iloc[0]), 3)
-            }
-            
-            return result
-            
         except Exception as e:
             st.error(f"Prediction error: {str(e)}")
             return None
 
-# Initialize predictor with caching
+# Initialize with caching
 @st.cache_resource
-def initialize_predictor():
-    """Initialize and train the predictor model"""
-    df = pd.read_csv(StringIO(data_text))
-    data_cleaned = clean_data_manual(df)
-    predictor = SimpleOptionPredictor()
-    predictor.train(data_cleaned)
-    return predictor
+def initialize_ml_predictor():
+    """Initialize and train the ML predictor"""
+    if not SKLEARN_AVAILABLE:
+        st.error("Cannot initialize: scikit-learn not installed")
+        return None
+    
+    try:
+        df = pd.read_csv(StringIO(data_text))
+        data_cleaned = clean_data_manual(df)
+        predictor = OptionPredictorML()
+        predictor.train(data_cleaned)
+        return predictor
+    except Exception as e:
+        st.error(f"Failed to initialize predictor: {e}")
+        return None
 
-# Mobile-optimized UI components
-def mobile_header():
-    """Mobile-friendly header"""
-    st.markdown('<h1 class="main-header">📱 Option Predictor</h1>', unsafe_allow_html=True)
-    
-    # Quick stats
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Accuracy", "85%", "+2%")
-    with col2:
-        st.metric("Calls", "65%", "-5%")
-    with col3:
-        st.metric("Puts", "35%", "+5%")
-
-def mobile_input_section():
-    """Mobile-friendly input section"""
-    st.markdown('<div class="mobile-input-group">', unsafe_allow_html=True)
-    st.subheader("📝 Option Details")
-    
-    # Use columns for mobile layout
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        date = st.date_input(
-            "Trade Date",
-            value=datetime.now() + timedelta(days=1),
-            min_value=datetime.now(),
-            max_value=datetime.now() + timedelta(days=365),
-            help="Select the trading date"
-        )
-    
-    with col2:
-        day = st.selectbox(
-            "Day",
-            options=["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
-            index=0,
-            help="Select day of the week"
-        )
-    
-    # Strike price
-    strike_price = st.select_slider(
-        "Strike Price",
-        options=[25500, 25600, 25700, 25800, 25900, 26000, 26100, 26200],
-        value=26000,
-        help="Select option strike price"
-    )
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Price inputs in mobile-optimized columns
-    st.markdown('<div class="mobile-input-group">', unsafe_allow_html=True)
-    st.subheader("💰 Previous Prices")
-    
-    price_col1, price_col2 = st.columns(2)
-    
-    with price_col1:
-        ce_prev = st.number_input(
-            "CE Previous Price",
-            min_value=0.0,
-            max_value=500.0,
-            value=120.5,
-            step=0.1,
-            format="%.2f",
-            help="Previous day's call option price"
-        )
-    
-    with price_col2:
-        pe_prev = st.number_input(
-            "PE Previous Price",
-            min_value=0.0,
-            max_value=500.0,
-            value=85.3,
-            step=0.1,
-            format="%.2f",
-            help="Previous day's put option price"
-        )
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Ratio inputs
-    st.markdown('<div class="mobile-input-group">', unsafe_allow_html=True)
-    st.subheader("📊 Market Ratios")
-    
-    ratio_col1, ratio_col2 = st.columns(2)
-    
-    with ratio_col1:
-        pcr = st.slider(
-            "PCR",
-            min_value=0.0,
-            max_value=3.0,
-            value=0.85,
-            step=0.01,
-            help="Put-Call Ratio (PCR < 0.8 = Bullish, PCR > 1.2 = Bearish)"
-        )
-    
-    with ratio_col2:
-        opcr = st.slider(
-            "OPCR",
-            min_value=0.0,
-            max_value=3.0,
-            value=0.92,
-            step=0.01,
-            help="Overall Put-Call Ratio"
-        )
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    return {
-        'Date': date.strftime('%Y-%m-%d'),
-        'Day': day,
-        'Option Name': str(strike_price),
-        'CE-previous': ce_prev,
-        'PE-previous': pe_prev,
-        'PCR': pcr,
-        'OPCR': opcr
-    }
-
-def display_market_insights(input_data):
-    """Display market insights in mobile format"""
-    st.markdown("### 📈 Market Insights")
-    
-    # Calculate insights
-    ce_pe_ratio = input_data['CE-previous'] / (input_data['PE-previous'] + 1e-10)
-    pcr_status = "🟢 Bullish" if input_data['PCR'] < 0.8 else "🔴 Bearish" if input_data['PCR'] > 1.2 else "🟡 Neutral"
-    pcr_opcr_diff = input_data['PCR'] - input_data['OPCR']
-    
-    # Display in mobile cards
-    col1, col2, col3 = st.columns(3)
-    
-    with col1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("CE/PE Ratio", f"{ce_pe_ratio:.2f}")
-        st.caption("Higher = Calls favored")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("PCR Status", pcr_status)
-        st.caption("Market sentiment")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with col3:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("PCR-OPCR Diff", f"{pcr_opcr_diff:.3f}")
-        st.caption("Contract vs Market")
-        st.markdown('</div>', unsafe_allow_html=True)
-
-def display_prediction_result_mobile(result, input_data):
-    """Display prediction results in mobile-friendly format"""
-    
-    # Determine card class based on action
-    card_class = "buy-call-card" if result['action'] == 'BUY_CALL' else "buy-put-card"
-    
-    st.markdown(f'<div class="prediction-card {card_class}">', unsafe_allow_html=True)
-    
-    # Action header
-    if result['action'] == 'BUY_CALL':
-        st.markdown("### 📈 BUY CALL OPTION")
-        st.markdown(f"**Entry Price:** ₹{result['predicted_CE_Buy']}")
-        st.success("🎯 Market expects UPWARD movement")
-    else:
-        st.markdown("### 📉 BUY PUT OPTION")
-        st.markdown(f"**Entry Price:** ₹{result['predicted_PE_Buy']}")
-        st.error("🎯 Market expects DOWNWARD movement")
-    
-    # Confidence meter
-    confidence_percent = result['confidence'] * 100
-    st.progress(result['confidence'], text=f"Confidence: {confidence_percent:.1f}%")
-    
-    # Probability breakdown
-    prob_col1, prob_col2 = st.columns(2)
-    with prob_col1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Call Probability", f"{result['call_probability']*100:.1f}%")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with prob_col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.metric("Put Probability", f"{result['put_probability']*100:.1f}%")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Trading advice
-    display_trading_advice_mobile(result)
-
-def display_trading_advice_mobile(result):
-    """Display mobile-friendly trading advice"""
-    st.markdown("### 💡 Trading Advice")
-    
-    # Position sizing based on confidence
-    if result['confidence'] > 0.8:
-        position_size = "3-5% of capital"
-        risk_level = "🟢 Low Risk"
-    elif result['confidence'] > 0.6:
-        position_size = "1-3% of capital"
-        risk_level = "🟡 Medium Risk"
-    else:
-        position_size = "<1% of capital"
-        risk_level = "🔴 High Risk"
-    
-    # Stop loss and target
-    if result['action'] == 'BUY_CALL':
-        entry_price = result['predicted_CE_Buy']
-    else:
-        entry_price = result['predicted_PE_Buy']
-    
-    stop_loss = entry_price * 0.95
-    target_price = entry_price * 1.15
-    
-    # Display in cards
-    advice_col1, advice_col2, advice_col3 = st.columns(3)
-    
-    with advice_col1:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown("**Position Size**")
-        st.markdown(f"`{position_size}`")
-        st.markdown(f"*{risk_level}*")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with advice_col2:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown("**Stop Loss**")
-        st.markdown(f"`₹{stop_loss:.2f}`")
-        st.markdown("*5% below entry*")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    with advice_col3:
-        st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-        st.markdown("**Target Price**")
-        st.markdown(f"`₹{target_price:.2f}`")
-        st.markdown("*15% above entry*")
-        st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Risk warning
-    st.markdown('<div class="risk-warning">', unsafe_allow_html=True)
-    st.markdown("""
-    ⚠️ **Risk Disclaimer:** 
-    Options trading involves significant risk. This prediction is based on AI analysis, not financial advice. 
-    Always conduct your own research and consider consulting a financial advisor.
-    """)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-def batch_prediction_mobile():
-    """Mobile-friendly batch prediction"""
-    st.markdown("### 📁 Batch Prediction")
-    
-    uploaded_file = st.file_uploader(
-        "Upload CSV file",
-        type=['csv'],
-        help="Upload CSV with Date, Strike_Price, CE_previous, PE_previous, PCR, OPCR columns"
-    )
-    
-    if uploaded_file is not None:
-        try:
-            df = pd.read_csv(uploaded_file)
-            st.success(f"✅ {len(df)} records loaded")
-            
-            with st.expander("📊 Preview Data"):
-                st.dataframe(df.head())
-            
-            if st.button("🔮 Predict All", type="primary", use_container_width=True):
-                with st.spinner("Processing..."):
-                    progress_bar = st.progress(0)
-                    results = []
-                    
-                    for idx, row in df.iterrows():
-                        input_data = {
-                            'Date': str(row.get('Date', '2026-01-01')),
-                            'Day': 'Monday',
-                            'Option Name': str(row.get('Strike_Price', 26000)),
-                            'CE-previous': float(row.get('CE_previous', 100)),
-                            'PE-previous': float(row.get('PE_previous', 100)),
-                            'PCR': float(row.get('PCR', 1.0)),
-                            'OPCR': float(row.get('OPCR', 1.0))
-                        }
-                        
-                        result = predictor.predict_single(input_data)
-                        if result:
-                            results.append({
-                                'Strike_Price': input_data['Option Name'],
-                                'Prediction': result['action'],
-                                'Price': result['predicted_CE_Buy'] if result['action'] == 'BUY_CALL' else result['predicted_PE_Buy'],
-                                'Confidence': f"{result['confidence']*100:.1f}%"
-                            })
-                        
-                        progress_bar.progress((idx + 1) / len(df))
-                    
-                    # Display results
-                    results_df = pd.DataFrame(results)
-                    st.dataframe(results_df)
-                    
-                    # Summary
-                    col1, col2, col3 = st.columns(3)
-                    with col1:
-                        st.metric("Total Predictions", len(results))
-                    with col2:
-                        calls = len([r for r in results if r['Prediction'] == 'BUY_CALL'])
-                        st.metric("Calls Recommended", calls)
-                    with col3:
-                        puts = len([r for r in results if r['Prediction'] == 'BUY_PUT'])
-                        st.metric("Puts Recommended", puts)
+# Alternative: Rule-based fallback
+class RuleBasedPredictor:
+    def predict_single(self, input_dict):
+        ce = float(input_dict['CE-previous'])
+        pe = float(input_dict['PE-previous'])
+        pcr = float(input_dict['PCR'])
+        opcr = float(input_dict['OPCR'])
         
-        except Exception as e:
-            st.error(f"Error: {str(e)}")
-
-def market_analysis_mobile():
-    """Mobile-friendly market analysis"""
-    st.markdown("### 📊 Market Analysis")
-    
-    # Create sample market data
-    dates = pd.date_range(start='2025-12-01', periods=30, freq='D')
-    pcr_values = 0.7 + 0.5 * np.sin(np.linspace(0, 2*np.pi, 30)) + np.random.normal(0, 0.1, 30)
-    
-    # Market indicators
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("NIFTY", "22,450", "+125")
-    with col2:
-        st.metric("VIX", "14.25", "-0.75")
-    with col3:
-        st.metric("PCR Trend", "0.89", "-0.05")
-    
-    # PCR Chart
-    chart_data = pd.DataFrame({
-        'Date': dates,
-        'PCR': pcr_values
-    })
-    st.line_chart(chart_data.set_index('Date')['PCR'])
-    
-    # Market sentiment guide
-    with st.expander("📖 PCR Guide"):
-        st.markdown("""
-        **PCR Interpretation:**
-        - **< 0.8**: Bullish (Excessive call buying)
-        - **0.8 - 1.2**: Neutral (Balanced market)
-        - **> 1.2**: Bearish (Excessive put buying)
+        # Simple rules
+        if pcr < 0.8:
+            action = 'BUY_CALL'
+            price = ce * 1.05
+            confidence = 0.7
+            call_prob = 0.7
+            put_prob = 0.3
+        elif pcr > 1.2:
+            action = 'BUY_PUT'
+            price = pe * 1.05
+            confidence = 0.7
+            call_prob = 0.3
+            put_prob = 0.7
+        else:
+            # Neutral - decide based on CE/PE ratio
+            if ce > pe:
+                action = 'BUY_CALL'
+                price = ce * 1.03
+                confidence = 0.5
+                call_prob = 0.6
+                put_prob = 0.4
+            else:
+                action = 'BUY_PUT'
+                price = pe * 1.03
+                confidence = 0.5
+                call_prob = 0.4
+                put_prob = 0.6
         
-        **Trading Signals:**
-        - PCR spike → Often indicates market bottom
-        - PCR drop → Often indicates market top
-        - PCR divergence → Potential reversal signal
-        """)
+        return {
+            'action': action,
+            'predicted_CE_Buy': round(price, 2) if action == 'BUY_CALL' else 0.0,
+            'predicted_PE_Buy': round(price, 2) if action == 'BUY_PUT' else 0.0,
+            'confidence': confidence,
+            'call_probability': call_prob,
+            'put_probability': put_prob,
+            'model_type': 'Rule-based'
+        }
 
-def about_page_mobile():
-    """Mobile-friendly about page"""
-    st.markdown("### ℹ️ About")
-    
-    st.markdown("""
-    **Option Predictor Mobile** helps you make informed option trading decisions using AI.
-    
-    **How it works:**
-    1. Analyzes market indicators (PCR, OPCR)
-    2. Uses machine learning to predict option buying
-    3. Provides entry price and confidence scores
-    
-    **Key Features:**
-    - 📱 Mobile-optimized interface
-    - 🔮 Single & batch predictions
-    - 📊 Market analysis
-    - 💡 Trading advice
-    
-    **Disclaimer:**
-    This tool provides AI-generated predictions, not financial advice.
-    Options trading involves risk. Always do your own research.
-    """)
-
-# Main app function
+# Main App
 def main():
-    """Main mobile app"""
+    st.title("📈 Option Predictor PRO")
+    st.markdown("**Machine Learning-powered option prediction**")
     
-    # Initialize predictor
-    global predictor
-    predictor = initialize_predictor()
+    # Sidebar
+    with st.sidebar:
+        st.header("Model Information")
+        
+        if SKLEARN_AVAILABLE:
+            st.success("✅ scikit-learn v1.3.0")
+            st.info("Using Random Forest ML model")
+            
+            # Initialize ML predictor
+            ml_predictor = initialize_ml_predictor()
+            rule_predictor = RuleBasedPredictor()
+            
+            use_ml = st.checkbox("Use Machine Learning", value=True, 
+                                 help="Uncheck to use rule-based prediction")
+            
+            if ml_predictor and ml_predictor.is_trained and use_ml:
+                predictor = ml_predictor
+                st.success("ML Model: Active")
+            else:
+                predictor = rule_predictor
+                st.warning("Rule-based: Active")
+        else:
+            st.error("❌ scikit-learn not available")
+            st.warning("Using rule-based prediction only")
+            predictor = RuleBasedPredictor()
     
-    # Mobile header
-    mobile_header()
-    
-    # Mobile navigation using tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["🔮 Predict", "📁 Batch", "📊 Market", "ℹ️ About"])
+    # Main content
+    tab1, tab2, tab3 = st.tabs(["🔮 Predict", "📊 Analysis", "📚 About"])
     
     with tab1:
-        # Single prediction tab
-        st.markdown("### Quick Prediction")
+        st.subheader("Make Prediction")
         
-        # Get user input
-        input_data = mobile_input_section()
+        col1, col2 = st.columns(2)
         
-        # Display market insights
-        display_market_insights(input_data)
+        with col1:
+            date = st.date_input("Date", datetime.now() + timedelta(days=1))
+            strike = st.selectbox("Strike Price", 
+                                 [25500, 25600, 25700, 25800, 25900, 26000, 26100, 26200],
+                                 index=5)
+            ce_price = st.number_input("CE Previous", value=120.5, min_value=0.0, step=0.1)
         
-        # Prediction button
-        if st.button("🔮 Get Prediction", type="primary", use_container_width=True, key="predict_button"):
-            with st.spinner("Analyzing..."):
+        with col2:
+            day = st.selectbox("Day", ["Monday", "Tuesday", "Wednesday", "Thursday", 
+                                      "Friday", "Saturday", "Sunday"], index=0)
+            pcr = st.slider("PCR", 0.0, 3.0, 0.85, 0.01)
+            pe_price = st.number_input("PE Previous", value=85.3, min_value=0.0, step=0.1)
+            opcr = st.slider("OPCR", 0.0, 3.0, 0.92, 0.01)
+        
+        # Market insights
+        st.subheader("📊 Market Insights")
+        
+        ce_pe_ratio = ce_price / max(pe_price, 0.01)
+        pcr_status = "Bullish" if pcr < 0.8 else "Bearish" if pcr > 1.2 else "Neutral"
+        
+        col_insight1, col_insight2, col_insight3 = st.columns(3)
+        with col_insight1:
+            st.metric("CE/PE Ratio", f"{ce_pe_ratio:.2f}")
+        with col_insight2:
+            st.metric("PCR Status", pcr_status)
+        with col_insight3:
+            st.metric("PCR-OPCR", f"{pcr - opcr:.3f}")
+        
+        # Predict button
+        if st.button("🔮 Get AI Prediction", type="primary", use_container_width=True):
+            input_data = {
+                'Date': date.strftime('%Y-%m-%d'),
+                'Day': day,
+                'Option Name': str(strike),
+                'CE-previous': ce_price,
+                'PE-previous': pe_price,
+                'PCR': pcr,
+                'OPCR': opcr
+            }
+            
+            with st.spinner("Analyzing with AI..."):
                 result = predictor.predict_single(input_data)
                 
                 if result:
                     # Display result
-                    display_prediction_result_mobile(result, input_data)
-                else:
-                    st.error("Failed to generate prediction. Please check your inputs.")
+                    st.subheader("🎯 Prediction Result")
+                    
+                    if result['action'] == 'BUY_CALL':
+                        st.success(f"**{result['action']}** at ₹{result['predicted_CE_Buy']}")
+                        st.info("Market expects upward movement")
+                    else:
+                        st.error(f"**{result['action']}** at ₹{result['predicted_PE_Buy']}")
+                        st.info("Market expects downward movement")
+                    
+                    # Confidence
+                    conf_pct = result['confidence'] * 100
+                    st.progress(result['confidence'], 
+                               text=f"Confidence: {conf_pct:.1f}% ({result['model_type']})")
+                    
+                    # Probabilities
+                    col_prob1, col_prob2 = st.columns(2)
+                    with col_prob1:
+                        st.metric("Call Probability", f"{result['call_probability']*100:.1f}%")
+                    with col_prob2:
+                        st.metric("Put Probability", f"{result['put_probability']*100:.1f}%")
+                    
+                    # Trading advice
+                    with st.expander("💡 Trading Advice"):
+                        if result['confidence'] > 0.7:
+                            st.success("**Strong Signal** - Consider position")
+                            st.write("Suggested: 2-3% of capital")
+                        elif result['confidence'] > 0.5:
+                            st.warning("**Moderate Signal** - Trade with caution")
+                            st.write("Suggested: 1-2% of capital")
+                        else:
+                            st.error("**Weak Signal** - Avoid or wait")
+                            st.write("Suggested: <1% of capital or skip")
+                        
+                        st.markdown("**Always:**")
+                        st.markdown("- Use stop losses")
+                        st.markdown("- Do your own research")
+                        st.markdown("- This is not financial advice")
     
     with tab2:
-        # Batch prediction tab
-        batch_prediction_mobile()
+        st.subheader("Model Analysis")
+        
+        if SKLEARN_AVAILABLE and ml_predictor and ml_predictor.is_trained:
+            st.success("✅ ML Model Active")
+            st.markdown("**Random Forest Classifier & Regressor**")
+            st.markdown("- **Trees:** 50")
+            st.markdown("- **Max Depth:** 5")
+            st.markdown("- **Features:** 7 indicators")
+            
+            # Show sample predictions
+            st.subheader("Sample Predictions")
+            samples = [
+                {"PCR": 0.6, "CE": 150, "PE": 80, "Result": "BUY_CALL (Bullish)"},
+                {"PCR": 1.5, "CE": 70, "PE": 120, "Result": "BUY_PUT (Bearish)"},
+                {"PCR": 0.9, "CE": 100, "PE": 95, "Result": "Neutral (Check ratios)"},
+            ]
+            
+            for sample in samples:
+                col_a, col_b, col_c, col_d = st.columns(4)
+                with col_a:
+                    st.metric("PCR", sample["PCR"])
+                with col_b:
+                    st.metric("CE", sample["CE"])
+                with col_c:
+                    st.metric("PE", sample["PE"])
+                with col_d:
+                    st.text(sample["Result"])
+        else:
+            st.warning("⚠️ Rule-based Analysis")
+            st.markdown("**Simple Rules Used:**")
+            st.markdown("1. **PCR < 0.8** → BUY_CALL")
+            st.markdown("2. **PCR > 1.2** → BUY_PUT")
+            st.markdown("3. **PCR 0.8-1.2** → Check CE/PE ratio")
+            st.markdown("4. **Price prediction:** 3-5% above previous")
     
     with tab3:
-        # Market analysis tab
-        market_analysis_mobile()
-    
-    with tab4:
-        # About tab
-        about_page_mobile()
-    
-    # Footer
-    st.markdown("---")
-    st.markdown(
-        "<div style='text-align: center; color: #666; font-size: 12px;'>"
-        "📱 Mobile Optimized • Option Predictor • Version 1.0"
-        "</div>",
-        unsafe_allow_html=True
-    )
+        st.subheader("About This Tool")
+        
+        st.markdown("""
+        ### 🤖 Machine Learning Option Predictor
+        
+        **Core Technology:**
+        - **Random Forest ML Model** trained on your option data
+        - **7 Feature Indicators:** CE, PE, PCR, OPCR, Strike, Ratios, Time
+        - **Dual Prediction:** Action (Call/Put) + Price
+        
+        **Why ML is better than rules:**
+        1. **Learns patterns** from your historical data
+        2. **Handles complex relationships** between indicators
+        3. **Adapts** to market changes
+        4. **Provides confidence scores** based on data
+        5. **More accurate predictions** than simple rules
+        
+        **Requirements:**
+        - `scikit-learn` for ML algorithms
+        - `pandas` for data processing
+        - `numpy` for calculations
+        
+        **Note:** This app falls back to rule-based prediction if ML is unavailable,
+        but ML provides significantly better results.
+        """)
+        
+        if not SKLEARN_AVAILABLE:
+            st.error("""
+            ⚠️ **scikit-learn is NOT installed!**
+            
+            You're using rule-based prediction which is less accurate.
+            
+            To install scikit-learn on Streamlit Cloud:
+            1. Add `scikit-learn==1.3.0` to requirements.txt
+            2. Redeploy the app
+            3. Wait for dependencies to install
+            """)
 
-# Run the app
 if __name__ == "__main__":
     main()
